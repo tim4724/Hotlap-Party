@@ -1,0 +1,9 @@
+{
+  "name": "hotlap-party",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Couch party racing game — phones as controllers via WebSocket",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

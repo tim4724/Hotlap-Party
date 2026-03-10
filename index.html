@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotlap Party</title>
+  <link rel="stylesheet" href="/css/display.css">
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+</head>
+<body>
+  <button id="fullscreen-btn" class="hidden" title="Toggle fullscreen">⛶</button>
+  <div id="app">
+    <!-- Welcome screen (room pre-created, QR pre-loaded) -->
+    <div id="welcome-screen" class="screen">
+      <h1>HOTLAP PARTY</h1>
+      <button id="new-game-btn">NEW GAME</button>
+    </div>
+
+    <!-- Lobby screen -->
+    <div id="lobby-screen" class="screen hidden">
+      <h1>HOTLAP PARTY</h1>
+      <div id="qr-container" class="hidden"></div>
+      <div id="room-code"></div>
+      <div id="player-list"></div>
+      <div class="lobby-buttons">
+        <button id="solo-btn">DEV</button>
+        <button id="start-btn" disabled>START RACE</button>
+      </div>
+    </div>
+
+    <!-- Game screen (countdown → playing → results) -->
+    <div id="game-screen" class="screen hidden">
+      <canvas id="race-canvas"></canvas>
+      <div id="hud"></div>
+      <button id="pause-btn" title="Pause">❚❚</button>
+      <div id="dev-slider" class="hidden">
+        <div id="slider-track">
+          <div id="slider-limit" class="hidden"></div>
+          <div id="slider-thumb"></div>
+        </div>
+        <div id="slider-value">0</div>
+      </div>
+      <!-- Pause overlay -->
+      <div id="pause-overlay" class="hidden">
+        <h1>PAUSED</h1>
+        <div class="lobby-buttons">
+          <button id="pause-continue-btn">CONTINUE</button>
+          <button id="pause-newgame-btn">NEW GAME</button>
+        </div>
+      </div>
+      <!-- Countdown overlay -->
+      <div id="countdown-overlay" class="hidden">
+        <div id="countdown-text"></div>
+      </div>
+      <!-- Results overlay -->
+      <div id="results-overlay" class="hidden">
+        <h1>RESULTS</h1>
+        <div id="results-list"></div>
+        <div class="lobby-buttons">
+          <button id="race-again-btn">RACE AGAIN</button>
+          <button id="new-game-results-btn">NEW GAME</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

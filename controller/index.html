@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Hotlap Party Controller</title>
+  <link rel="stylesheet" href="/controller/css/controller.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Join Screen: name input -->
+    <div id="join-screen" class="screen">
+      <h1>HOTLAP PARTY</h1>
+      <p id="connecting-msg" class="hidden">Connecting...</p>
+      <div id="name-form">
+        <input type="text" id="name-input" placeholder="Your name" maxlength="12" autocomplete="off" autocapitalize="words">
+        <button id="join-btn">JOIN</button>
+      </div>
+    </div>
+
+    <!-- Lobby Screen: waiting for race start -->
+    <div id="lobby-screen" class="screen hidden">
+      <div id="player-color-dot"></div>
+      <h2 id="player-name-display"></h2>
+      <button id="start-btn" class="hidden">START RACE</button>
+      <p id="lobby-status">Waiting for host to start...</p>
+    </div>
+
+    <!-- Racing Screen: gas button -->
+    <div id="racing-screen" class="screen hidden">
+      <div id="gas-button">GAS</div>
+      <div id="lap-display"></div>
+      <div id="crash-overlay" class="hidden">CRASH!</div>
+      <button id="pause-btn" class="hidden">❚❚</button>
+      <div id="pause-overlay" class="hidden">
+        <h1>PAUSED</h1>
+        <div id="pause-buttons" class="hidden">
+          <button id="pause-continue-btn">CONTINUE</button>
+          <button id="pause-newgame-btn">NEW GAME</button>
+        </div>
+        <p id="pause-status" class="hidden">Waiting for host...</p>
+      </div>
+    </div>
+
+    <!-- Finish Screen: results + host buttons -->
+    <div id="finish-screen" class="screen hidden">
+      <h1 id="finish-place"></h1>
+      <p id="finish-time"></p>
+      <div id="finish-buttons" class="hidden">
+        <button id="play-again-btn">RACE AGAIN</button>
+        <button id="finish-new-game-btn">NEW GAME</button>
+      </div>
+      <p id="finish-status" class="hidden">Waiting for host...</p>
+    </div>
+  </div>
+  <script type="module" src="/controller/js/main.js"></script>
+</body>
+</html>
