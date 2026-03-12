@@ -1,14 +1,15 @@
-import { TRACK_WIDTH, CAR_RADIUS, MAX_SPEED, OFF_TRACK_DURATION_MS, DRIFT_PHASE_MS } from '../shared/constants.js';
-import { getPositionOnTrack, getEffectiveMaxSpeed } from '../shared/track.js';
+import { TRACK_WIDTH, CAR_RADIUS, MAX_SPEED, OFF_TRACK_DURATION_MS, DRIFT_PHASE_MS } from '../../shared/constants.js';
+import { getPositionOnTrack, getEffectiveMaxSpeed } from '../../shared/track.js';
+import { computeOvertakeOffsets, smoothVisualOffsets } from './overtake.js';
 
 let app = null;
 let trackContainer = null;
 let carContainer = null;
-let hudContainer = null;
 let cars = new Map();
+let currentGeometry = null;
 
 export async function initRenderer(canvas) {
-  if (app) return; // already initialized
+  if (app) return;
   app = new PIXI.Application();
   await app.init({
     canvas,
@@ -19,18 +20,34 @@ export async function initRenderer(canvas) {
 
   trackContainer = new PIXI.Container();
   carContainer = new PIXI.Container();
-  hudContainer = new PIXI.Container();
 
   app.stage.addChild(trackContainer);
   app.stage.addChild(carContainer);
-  app.stage.addChild(hudContainer);
+}
+
+export function resize() {
+  if (!app || !currentGeometry) return;
+  fitToScreen();
 }
 
 export function drawTrack(geometry) {
+  currentGeometry = geometry;
   trackContainer.removeChildren();
 
-  const bounds = getTrackBounds(geometry);
-  const padding = 40;
+  for (const seg of geometry) {
+    if (seg.type === 'straight') {
+      drawStraight(seg);
+    } else {
+      drawCurve(seg);
+    }
+  }
+
+  fitToScreen();
+}
+
+function fitToScreen() {
+  const bounds = getTrackBounds(currentGeometry);
+  const padding = 20;
   const scaleX = (app.screen.width - padding * 2) / bounds.width;
   const scaleY = (app.screen.height - padding * 2) / bounds.height;
   const scale = Math.min(scaleX, scaleY);
@@ -41,15 +58,9 @@ export function drawTrack(geometry) {
   carContainer.scale.set(scale);
   carContainer.x = trackContainer.x;
   carContainer.y = trackContainer.y;
-
-  for (const seg of geometry) {
-    if (seg.type === 'straight') {
-      drawStraight(seg);
-    } else {
-      drawCurve(seg);
-    }
-  }
 }
+
+// --- Track drawing ---
 
 function drawStraight(seg) {
   const g = new PIXI.Graphics();
@@ -63,26 +74,34 @@ function drawStraight(seg) {
     seg.endX - nx * hw, seg.endY - ny * hw,
     seg.endX + nx * hw, seg.endY + ny * hw,
   ]);
-  g.fill({ color: hslToHex(120, 60, 28) }); // green = max speed allowed
-
-  // Center line
-  g.moveTo(seg.startX, seg.startY);
-  g.lineTo(seg.endX, seg.endY);
-  g.stroke({ color: 0x555555, width: 1 });
-
+  g.fill({ color: hslToHex(120, 60, 28) });
   trackContainer.addChild(g);
+
+  // Center line (dashed)
+  const cl = new PIXI.Graphics();
+  const dx = Math.cos(seg.startAngle);
+  const dy = Math.sin(seg.startAngle);
+  let along = 0;
+  while (along < seg.arcLength) {
+    const end = Math.min(along + 15, seg.arcLength);
+    cl.moveTo(seg.startX + dx * along, seg.startY + dy * along);
+    cl.lineTo(seg.startX + dx * end, seg.startY + dy * end);
+    along += 30;
+  }
+  cl.stroke({ color: 0x555555, width: 1 });
+  trackContainer.addChild(cl);
 }
 
 function drawCurve(seg) {
   const hw = TRACK_WIDTH / 2;
   const sign = Math.sign(seg.angle);
   const angleRad = (seg.angle * Math.PI) / 180;
-  const strips = Math.max(12, Math.abs(seg.angle) / 4); // number of colored strips
+  const strips = Math.max(12, Math.abs(seg.angle) / 4);
 
   const innerR = seg.radius - hw;
   const outerR = seg.radius + hw;
 
-  // Draw gradient strips — color varies by effective max speed at each point
+  // Gradient strips — color varies by effective max speed
   for (let i = 0; i < strips; i++) {
     const t0 = i / strips;
     const t1 = (i + 1) / strips;
@@ -145,9 +164,24 @@ function drawCurve(seg) {
   trackContainer.addChild(cl);
 }
 
+// --- Car rendering ---
+
 export function updateCars(playerStates, geometry) {
   const now = performance.now();
 
+  // Compute base positions for all active cars
+  const basePositions = new Map();
+  for (const [peerId, ps] of playerStates) {
+    if (ps.offTrack || ps.finished) continue;
+    const pos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, ps.laneOffset || 0);
+    basePositions.set(peerId, { x: pos.x, y: pos.y, angle: pos.angle, distance: ps.distance, speed: ps.speed });
+  }
+
+  // Compute and smooth overtake offsets
+  const targets = computeOvertakeOffsets(basePositions);
+  const smoothed = smoothVisualOffsets(targets);
+
+  // Render all cars
   for (const [peerId, ps] of playerStates) {
     let car = cars.get(peerId);
     if (!car) {
@@ -163,16 +197,10 @@ export function updateCars(playerStates, geometry) {
       const elapsed = now - ps.offTrackStart;
 
       if (elapsed < DRIFT_PHASE_MS) {
-        // Phase 1: Oversteer — car slides forward along its momentum
-        // and drifts outward from the curve, like losing rear grip
         const t = easeOutQuad(elapsed / DRIFT_PHASE_MS);
-
-        // Scale drift distance by how much over the limit the car was
         const driftScale = Math.min(ps.offTrackSpeed / MAX_SPEED, 1);
         const forwardDist = TRACK_WIDTH * 2.5 * t * driftScale;
         const lateralDist = TRACK_WIDTH * 1.0 * t * driftScale;
-
-        // Forward = along heading at crash, lateral = perpendicular outward
         const fwdAngle = ps.offTrackAngle;
         const latAngle = fwdAngle + ps.offTrackDirection * (Math.PI / 2);
 
@@ -180,7 +208,6 @@ export function updateCars(playerStates, geometry) {
         car.y = ps.offTrackY + Math.sin(fwdAngle) * forwardDist + Math.sin(latAngle) * lateralDist;
         car.alpha = 1.0;
       } else {
-        // Phase 2: Blink at crash position (snapped back)
         const blinkElapsed = elapsed - DRIFT_PHASE_MS;
         const blinkCycle = Math.sin(blinkElapsed / 80 * Math.PI);
         car.alpha = 0.2 + Math.abs(blinkCycle) * 0.6;
@@ -189,8 +216,8 @@ export function updateCars(playerStates, geometry) {
         car.y = pos.y;
       }
     } else {
-      // Normal racing — position with lateral offset
-      const pos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, ps.laneOffset || 0);
+      const offset = (ps.laneOffset || 0) + (smoothed.get(peerId) || 0);
+      const pos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, offset);
       car.x = pos.x;
       car.y = pos.y;
       car.alpha = 1.0;
@@ -198,16 +225,20 @@ export function updateCars(playerStates, geometry) {
   }
 }
 
+// --- HUD (DOM-based, renderer-agnostic but lives here for now) ---
+
 export function updateHUD(playerStates, totalLaps) {
   const hud = document.getElementById('hud');
   const sorted = [...playerStates.values()].sort((a, b) => b.distance - a.distance);
   hud.innerHTML = sorted.map(ps => `
     <div class="hud-player">
       <span class="hud-dot" style="background:${ps.color}"></span>
-      ${ps.name} — Lap ${ps.lap}/${totalLaps}${ps.offTrack ? ' OFF TRACK' : ''}${ps.finished ? ` P${ps.place}` : ''}
+      ${ps.name} — Lap ${totalLaps ? `${ps.lap}/${totalLaps}` : ps.lap}${ps.offTrack ? ' OFF TRACK' : ''}${ps.finished ? ` P${ps.place}` : ''}
     </div>
   `).join('');
 }
+
+// --- Helpers ---
 
 function easeOutQuad(t) {
   return t * (2 - t);

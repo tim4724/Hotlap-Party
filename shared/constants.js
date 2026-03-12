@@ -19,7 +19,7 @@ export const STATE_BROADCAST_INTERVAL = 3; // every 3rd tick = 20fps
 export const CONTROLLER_SEND_INTERVAL = 100; // ms between input sends
 
 // Track rendering
-export const TRACK_WIDTH = 110;
+export const TRACK_WIDTH = 200;
 export const CAR_RADIUS = 12;
 
 // Acceleration/deceleration (controller players only, dev slider is instant)

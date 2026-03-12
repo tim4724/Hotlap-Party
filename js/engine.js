@@ -17,12 +17,14 @@ let onUpdate = null;
 let onRaceFinish = null;
 let finishedCount = 0;
 let raceStartTime = 0;
+let devMode = false;
 
 export function initEngine(players, trackId, callbacks) {
   const track = TRACKS[trackId || 'starter'];
   geometry = buildTrackGeometry(track.segments);
   trackLength = getTrackLength(geometry);
   totalLaps = track.laps;
+  devMode = !!callbacks.devMode;
   onUpdate = callbacks.onUpdate;
   onRaceFinish = callbacks.onRaceFinish;
   finishedCount = 0;
@@ -45,7 +47,7 @@ export function initEngine(players, trackId, callbacks) {
       lap: 1,
       lastInputTime: 0,
       // Lateral drift (car slides toward edge when too fast in curves)
-      laneOffset: 0, // signed offset passed to getPositionOnTrack
+      laneOffset: 0, // will be pulled toward target lane each frame
       // Off-track state (triggered when drift reaches track edge)
       offTrack: false,
       offTrackStart: 0,
@@ -111,7 +113,6 @@ function loop(timestamp) {
   tick++;
 
   const now = performance.now();
-  const crashEdge = TRACK_WIDTH / 2 - CAR_RADIUS - DRIFT_CRASH_MARGIN;
 
   for (const [peerId, ps] of playerStates) {
     if (ps.finished) continue;
@@ -138,19 +139,31 @@ function loop(timestamp) {
       }
     }
 
-    // Input timeout — if no recent input, treat as releasing
-    const inputActive = (now - ps.lastInputTime) < INPUT_TIMEOUT_MS;
-    const targetThrottle = inputActive ? ps.throttle : 0;
-
-    if (peerId === 'local') {
-      // Dev slider: instant speed for testing
-      ps.speed = targetThrottle * MAX_SPEED;
+    if (peerId === 'bot') {
+      // Bot: drive at just under the effective max speed for current position
+      const seg = geometry[ps.segIndex];
+      const effMax = getEffectiveMaxSpeed(seg, ps.progress, MAX_SPEED);
+      // Look ahead to next segment to brake early
+      const nextSeg = geometry[(ps.segIndex + 1) % geometry.length];
+      const nextMax = getEffectiveMaxSpeed(nextSeg, 0, MAX_SPEED);
+      const brakeTarget = ps.progress > 0.7 ? Math.min(effMax, nextMax) : effMax;
+      // Drive at 90% of safe speed for margin
+      ps.speed = brakeTarget * 0.9;
     } else {
-      // Controller: accel/decel — hold button to speed up, release to slow down
-      if (targetThrottle > 0) {
-        ps.speed += ACCEL_RATE;
+      // Input timeout — if no recent input, treat as releasing
+      const inputActive = (now - ps.lastInputTime) < INPUT_TIMEOUT_MS;
+      const targetThrottle = inputActive ? ps.throttle : 0;
+
+      if (peerId === 'local') {
+        // Dev slider: instant speed for testing
+        ps.speed = targetThrottle * MAX_SPEED;
       } else {
-        ps.speed -= DECEL_RATE;
+        // Controller: accel/decel — hold button to speed up, release to slow down
+        if (targetThrottle > 0) {
+          ps.speed += ACCEL_RATE;
+        } else {
+          ps.speed -= DECEL_RATE;
+        }
       }
     }
     ps.speed = Math.max(0, Math.min(MAX_SPEED, ps.speed));
@@ -163,7 +176,7 @@ function loop(timestamp) {
     const lapDistance = totalTrackDist % trackLength;
     const currentLap = Math.floor(totalTrackDist / trackLength) + 1;
 
-    if (currentLap > totalLaps && !ps.finished) {
+    if (!devMode && currentLap > totalLaps && !ps.finished) {
       ps.finished = true;
       finishedCount++;
       ps.place = finishedCount;
@@ -177,7 +190,7 @@ function loop(timestamp) {
       continue;
     }
 
-    ps.lap = Math.min(currentLap, totalLaps);
+    ps.lap = devMode ? currentLap : Math.min(currentLap, totalLaps);
     const segResult = distanceToSegment(geometry, lapDistance);
     ps.segIndex = segResult.segIndex;
     ps.progress = segResult.progress;
@@ -196,11 +209,11 @@ function loop(timestamp) {
       const sign = Math.sign(ps.laneOffset);
       const recovery = Math.min(Math.abs(ps.laneOffset), DRIFT_RECOVERY);
       ps.laneOffset -= sign * recovery;
-      // Snap to zero if close enough
       if (Math.abs(ps.laneOffset) < 0.1) ps.laneOffset = 0;
     }
 
     // Crash check — drifted to track edge
+    const crashEdge = TRACK_WIDTH / 2 - CAR_RADIUS - DRIFT_CRASH_MARGIN;
     if (Math.abs(ps.laneOffset) >= crashEdge) {
       const crashPos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, ps.laneOffset);
       ps.offTrack = true;
@@ -220,7 +233,7 @@ function loop(timestamp) {
   // Broadcast state to controllers at reduced rate (skip local players)
   if (tick % STATE_BROADCAST_INTERVAL === 0) {
     for (const [peerId, ps] of playerStates) {
-      if (peerId === 'local') continue;
+      if (peerId === 'local' || peerId === 'bot') continue;
       const currentSeg = geometry[ps.segIndex];
       const nextSeg = geometry[(ps.segIndex + 1) % geometry.length];
       let effectiveMaxSpeed = getEffectiveMaxSpeed(currentSeg, ps.progress, MAX_SPEED);

@@ -4,7 +4,7 @@ import { getEffectiveMaxSpeed } from '../shared/track.js';
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
-import { initRenderer, drawTrack, updateCars, updateHUD } from './renderer.js';
+import { initRenderer, drawTrack, updateCars, updateHUD, resize } from './renderer/index.js';
 import { showResults } from './results.js';
 
 // --- Screens ---
@@ -75,6 +75,9 @@ async function init() {
     history.pushState({ screen: SCREEN.LOBBY }, '');
     showConnectionInfo();
   });
+
+  // Refit track on resize / orientation change
+  window.addEventListener('resize', () => resize());
 
   // Fullscreen toggle
   const fsBtn = document.getElementById('fullscreen-btn');
@@ -160,8 +163,13 @@ async function startSoloRace() {
     color: PLAYER_COLORS[0],
     index: 0,
   });
+  localPlayers.set('bot', {
+    name: 'Bot',
+    color: PLAYER_COLORS[1],
+    index: 1,
+  });
 
-  await startRaceWithPlayers(localPlayers, true);
+  await startRaceWithPlayers(localPlayers, true, true);
   initDevSlider();
 }
 
@@ -217,18 +225,19 @@ function returnToLobby() {
 
 // --- Shared Race Flow ---
 
-async function startRaceWithPlayers(players, skipCountdown = false) {
+async function startRaceWithPlayers(players, skipCountdown = false, devMode = false) {
   const canvas = document.getElementById('race-canvas');
   await initRenderer(canvas);
 
   initEngine(players, 'starter', {
+    devMode,
     onUpdate: (states, geo) => {
       if (localPlayerId) {
         handleInput(localPlayerId, currentLocalThrottle);
         updateSliderLimit(states, geo);
       }
       updateCars(states, geo);
-      updateHUD(states, getTotalLaps());
+      updateHUD(states, devMode ? 0 : getTotalLaps());
     },
     onRaceFinish: () => {
       stopEngine();
