@@ -1,6 +1,9 @@
 import { TRACK_WIDTH, CAR_RADIUS, MAX_SPEED, OFF_TRACK_DURATION_MS, DRIFT_PHASE_MS } from '../../shared/constants.js';
 import { getPositionOnTrack, getEffectiveMaxSpeed, getTrackLength } from '../../shared/track.js';
 import { computeOvertakeOffsets, smoothVisualOffsets } from './overtake.js';
+import { initAudio, updateAudio, playCrashSound, suspendAudio, resumeAudio } from './audio.js';
+
+export { suspendAudio, resumeAudio };
 
 let app = null;
 let trackContainer = null;
@@ -8,6 +11,7 @@ let carContainer = null;
 let cars = new Map();
 let currentGeometry = null;
 let currentTrackLength = 0;
+let crashedCars = new Set(); // track which cars have already triggered crash sound
 
 export async function initRenderer(canvas) {
   if (app) return;
@@ -24,6 +28,8 @@ export async function initRenderer(canvas) {
 
   app.stage.addChild(trackContainer);
   app.stage.addChild(carContainer);
+
+  initAudio();
 }
 
 export function resize() {
@@ -389,6 +395,13 @@ export function updateCars(playerStates, geometry) {
     }
 
     if (ps.offTrack) {
+      // Trigger crash sound once per off-track event
+      if (!crashedCars.has(peerId)) {
+        crashedCars.add(peerId);
+        const screenX = car.x * trackContainer.scale.x + trackContainer.x;
+        playCrashSound(screenX);
+      }
+
       const elapsed = now - ps.offTrackStart;
 
       if (elapsed < DRIFT_PHASE_MS) {
@@ -414,6 +427,7 @@ export function updateCars(playerStates, geometry) {
         car.rotation = pos.angle;
       }
     } else {
+      crashedCars.delete(peerId); // Reset so next crash triggers sound
       const offset = (ps.laneOffset || 0) + (smoothed.get(peerId) || 0);
       const pos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, offset);
       car.x = pos.x;
@@ -421,7 +435,13 @@ export function updateCars(playerStates, geometry) {
       car.rotation = pos.angle;
       car.alpha = 1.0;
     }
+
+    // Store screen-space X for audio panning
+    ps._screenX = car.x * trackContainer.scale.x + trackContainer.x;
   }
+
+  // Update engine sounds with spatial panning
+  updateAudio(playerStates);
 }
 
 // --- HUD (DOM-based, renderer-agnostic but lives here for now) ---

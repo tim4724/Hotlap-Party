@@ -4,7 +4,7 @@ import { TRACKS, getEffectiveMaxSpeed, getPositionOnTrack, getTrackLength } from
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
-import { initRenderer, drawTrack, updateCars, updateHUD, resize } from './renderer/index.js';
+import { initRenderer, drawTrack, updateCars, updateHUD, resize, suspendAudio, resumeAudio } from './renderer/index.js';
 import { showResults } from './results.js';
 
 // --- Screens ---
@@ -210,6 +210,7 @@ function pauseGame() {
   if (roomState !== ROOM_STATE.PLAYING && roomState !== ROOM_STATE.COUNTDOWN) return;
   if (isPaused()) return;
   pauseEngine();
+  suspendAudio();
   broadcast({ type: MSG.GAME_PAUSED });
   document.getElementById('pause-overlay').classList.remove('hidden');
 }
@@ -217,6 +218,7 @@ function pauseGame() {
 function resumeGame() {
   if (!isPaused()) return;
   resumeEngine();
+  resumeAudio();
   broadcast({ type: MSG.GAME_RESUMED });
   document.getElementById('pause-overlay').classList.add('hidden');
 }
@@ -225,6 +227,7 @@ function resumeGame() {
 
 function returnToLobby() {
   stopEngine();
+  suspendAudio();
   hideDevSlider();
   roomState = ROOM_STATE.LOBBY;
   broadcast({ type: MSG.RETURN_TO_LOBBY, playerCount: getPlayers().size });
