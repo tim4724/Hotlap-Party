@@ -18,7 +18,7 @@ export function initAudio() {
   if (ctx) return;
   ctx = new AudioContext();
   masterGain = ctx.createGain();
-  masterGain.gain.value = 0.5;
+  masterGain.gain.value = 1.0;
   masterGain.connect(ctx.destination);
 
   const resume = () => {

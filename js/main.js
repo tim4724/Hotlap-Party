@@ -88,6 +88,7 @@ async function init() {
   document.addEventListener('fullscreenchange', () => {
     fsBtn.textContent = document.fullscreenElement ? '⛶' : '⛶';
     fsBtn.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+    setTimeout(() => resize(), 100);
   });
 
   // Pause buttons (display-side)
