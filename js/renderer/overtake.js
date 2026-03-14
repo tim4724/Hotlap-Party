@@ -1,9 +1,10 @@
 // Visual overtake spreading — renderer-agnostic logic
 // When cars are near each other, the one ahead shifts left, the one behind shifts right.
 
-const OVERTAKE_PROXIMITY = 50;  // pixel distance to trigger spread
-const OVERTAKE_OFFSET = 30;     // max lateral offset in pixels
+const OVERTAKE_PROXIMITY = 160; // pixel distance to trigger spread
+const OVERTAKE_OFFSET = 50;     // max lateral offset in pixels
 const OFFSET_LERP = 0.12;       // smoothing factor per frame
+const OVERTAKE_TRACK_WINDOW = 180; // keep crossings from triggering false spreads
 
 const visualOffsets = new Map(); // peerId → current smoothed offset
 
@@ -12,9 +13,10 @@ const visualOffsets = new Map(); // peerId → current smoothed offset
  * Offset is weighted by speed — a faster car moves left more,
  * a slower/stationary car barely moves.
  * @param {Map<string, {x, y, distance, speed}>} basePositions
+ * @param {number} trackLength
  * @returns {Map<string, number>} target offsets per peerId
  */
-export function computeOvertakeOffsets(basePositions) {
+export function computeOvertakeOffsets(basePositions, trackLength) {
   const targets = new Map();
   const entries = [...basePositions.entries()];
   for (const [id] of entries) targets.set(id, 0);
@@ -26,7 +28,10 @@ export function computeOvertakeOffsets(basePositions) {
       const dx = posA.x - posB.x;
       const dy = posA.y - posB.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const rawTrackGap = trackLength > 0 ? Math.abs(posA.distance - posB.distance) % trackLength : Infinity;
+      const trackGap = trackLength > 0 ? Math.min(rawTrackGap, trackLength - rawTrackGap) : Infinity;
       if (dist >= OVERTAKE_PROXIMITY) continue;
+      if (trackGap > OVERTAKE_TRACK_WINDOW) continue;
 
       const proximity = 1 - dist / OVERTAKE_PROXIMITY;
       const totalSpread = OVERTAKE_OFFSET * 2 * proximity;

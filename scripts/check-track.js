@@ -1,40 +1,17 @@
 // Quick script to test track closure
 // Run: node scripts/check-track.js
 
-import { SEGMENT_TYPES, buildTrackGeometry, getTrackLength } from '../shared/track.js';
-const S = SEGMENT_TYPES;
+import { TRACKS, buildTrackGeometry, getTrackLength } from '../shared/track.js';
 
-// Closure math (all axis-aligned):
-// Angles: +90 -90 +90 -90 +180 +90 +90 = 360° ✓
-// x: 400+150+0+100+200+100+0+100+300+0-400-400-400-200-100+0+0+0+150 = 0 ✓
-// y: 0+150+200+100+0+100+400+100+0+200+0+0+0+0-100-400-400-200-150 = 0 ✓
-const segments = [
-  S.LONG_STRAIGHT,            // 400 right
-  S.MEDIUM_RIGHT,             // +90° → down
-  S.SHORT_STRAIGHT,           // 200 down
-  S.SHARP_LEFT,               // -90° → right (chicane entry)
-  S.SHORT_STRAIGHT,           // 200 right
-  S.SHARP_RIGHT,              // +90° → down (chicane exit)
-  S.LONG_STRAIGHT,            // 400 down
-  S.SHARP_LEFT,               // -90° → right
-  S.MEDIUM_STRAIGHT,          // 300 right
-  S.WIDE_HAIRPIN_RIGHT,       // +180° → left (HAIRPIN!)
-  S.LONG_STRAIGHT,            // 400 left
-  S.LONG_STRAIGHT,            // 400 left
-  S.LONG_STRAIGHT,            // 400 left
-  S.SHORT_STRAIGHT,           // 200 left
-  S.SHARP_RIGHT,              // +90° → up
-  S.LONG_STRAIGHT,            // 400 up
-  S.LONG_STRAIGHT,            // 400 up
-  S.SHORT_STRAIGHT,           // 200 up
-  S.MEDIUM_RIGHT,             // +90° → right
-];
+const track = TRACKS.starter;
+const segments = track.segments;
 
 // Angle check
 let totalAngle = 0;
 for (const seg of segments) {
   if (seg.type === 'curve') totalAngle += seg.angle;
 }
+console.log(`Track: ${track.name}`);
 console.log(`Total angle: ${totalAngle}° (need 360°)`);
 
 const geo = buildTrackGeometry(segments);
@@ -47,11 +24,27 @@ console.log(`Gap from origin: ${Math.sqrt(last.endX**2 + last.endY**2).toFixed(1
 console.log(`Track length: ${getTrackLength(geo).toFixed(0)} units`);
 console.log(`Segments: ${geo.length}`);
 
+// Bounding box
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+for (const s of geo) {
+  for (const [x, y] of [[s.startX, s.startY], [s.endX, s.endY]]) {
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+}
+const width = maxX - minX;
+const height = maxY - minY;
+console.log(`Bounding box: ${width.toFixed(0)} × ${height.toFixed(0)} (ratio ${(width / height).toFixed(2)}:1)`);
+
 // Per-segment positions
 console.log('\nSegment breakdown:');
 for (let i = 0; i < geo.length; i++) {
   const s = geo[i];
-  const label = s.type === 'straight' ? `straight(${s.arcLength})` : `curve(${s.angle}°, r=${s.radius})`;
+  const label = s.type === 'straight'
+    ? `straight(${s.arcLength}${s.feature ? `, ${s.feature}` : ''})`
+    : `curve(${s.angle}°, r=${s.radius})`;
   const heading = (s.endAngle * 180 / Math.PI).toFixed(0);
-  console.log(`  ${i}: ${label.padEnd(22)} → end(${s.endX.toFixed(0)}, ${s.endY.toFixed(0)}) heading ${heading}°`);
+  console.log(`  ${i}: ${label.padEnd(28)} → end(${s.endX.toFixed(0)}, ${s.endY.toFixed(0)}) heading ${heading}°`);
 }

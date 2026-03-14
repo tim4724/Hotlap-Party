@@ -1,5 +1,5 @@
 import { TRACK_WIDTH, CAR_RADIUS, MAX_SPEED, OFF_TRACK_DURATION_MS, DRIFT_PHASE_MS } from '../../shared/constants.js';
-import { getPositionOnTrack, getEffectiveMaxSpeed } from '../../shared/track.js';
+import { getPositionOnTrack, getEffectiveMaxSpeed, getTrackLength } from '../../shared/track.js';
 import { computeOvertakeOffsets, smoothVisualOffsets } from './overtake.js';
 
 let app = null;
@@ -7,6 +7,7 @@ let trackContainer = null;
 let carContainer = null;
 let cars = new Map();
 let currentGeometry = null;
+let currentTrackLength = 0;
 
 export async function initRenderer(canvas) {
   if (app) return;
@@ -32,6 +33,7 @@ export function resize() {
 
 export function drawTrack(geometry) {
   currentGeometry = geometry;
+  currentTrackLength = getTrackLength(geometry);
   trackContainer.removeChildren();
 
   for (const seg of geometry) {
@@ -47,9 +49,10 @@ export function drawTrack(geometry) {
 
 function fitToScreen() {
   const bounds = getTrackBounds(currentGeometry);
-  const padding = 20;
-  const scaleX = (app.screen.width - padding * 2) / bounds.width;
-  const scaleY = (app.screen.height - padding * 2) / bounds.height;
+  const padX = Math.max(28, app.screen.width * 0.025);
+  const padY = Math.max(32, app.screen.height * 0.045);
+  const scaleX = (app.screen.width - padX * 2) / bounds.width;
+  const scaleY = (app.screen.height - padY * 2) / bounds.height;
   const scale = Math.min(scaleX, scaleY);
 
   trackContainer.scale.set(scale);
@@ -63,11 +66,11 @@ function fitToScreen() {
 // --- Track drawing ---
 
 function drawStraight(seg) {
-  const g = new PIXI.Graphics();
   const hw = TRACK_WIDTH / 2;
   const nx = -Math.sin(seg.startAngle);
   const ny = Math.cos(seg.startAngle);
 
+  const g = new PIXI.Graphics();
   g.poly([
     seg.startX + nx * hw, seg.startY + ny * hw,
     seg.startX - nx * hw, seg.startY - ny * hw,
@@ -90,6 +93,7 @@ function drawStraight(seg) {
   }
   cl.stroke({ color: 0x555555, width: 1 });
   trackContainer.addChild(cl);
+
 }
 
 function drawCurve(seg) {
@@ -166,6 +170,51 @@ function drawCurve(seg) {
 
 // --- Car rendering ---
 
+// Car dimensions (centered at 0,0, pointing right)
+const CAR_LENGTH = 112;
+const CAR_WIDTH = 56;
+
+function createCarGraphic(color) {
+  const container = new PIXI.Container();
+  const hexColor = cssColorToHex(color);
+  const hl = CAR_LENGTH / 2;
+  const hw = CAR_WIDTH / 2;
+
+  // Shadow (subtle, offset slightly)
+  const shadow = new PIXI.Graphics();
+  shadow.roundRect(-hl + 1, -hw + 1, CAR_LENGTH, CAR_WIDTH, 4);
+  shadow.fill({ color: 0x000000 });
+  shadow.alpha = 0.3;
+  container.addChild(shadow);
+
+  // Body
+  const body = new PIXI.Graphics();
+  body.roundRect(-hl, -hw, CAR_LENGTH, CAR_WIDTH, 4);
+  body.fill({ color: hexColor });
+  body.stroke({ color: 0xffffff, width: 1.5 });
+  container.addChild(body);
+
+  // Windshield (dark area near front)
+  const windshield = new PIXI.Graphics();
+  windshield.roundRect(2, -hw + 3, 7, CAR_WIDTH - 6, 2);
+  windshield.fill({ color: darkenColor(hexColor, 0.4) });
+  container.addChild(windshield);
+
+  // Rear spoiler accent
+  const spoiler = new PIXI.Graphics();
+  spoiler.rect(-hl + 1, -hw + 1, 3, CAR_WIDTH - 2);
+  spoiler.fill({ color: darkenColor(hexColor, 0.25) });
+  container.addChild(spoiler);
+
+  // Front highlight
+  const front = new PIXI.Graphics();
+  front.rect(hl - 4, -hw + 2, 2, CAR_WIDTH - 4);
+  front.fill({ color: lightenColor(hexColor, 0.3) });
+  container.addChild(front);
+
+  return container;
+}
+
 export function updateCars(playerStates, geometry) {
   const now = performance.now();
 
@@ -178,17 +227,14 @@ export function updateCars(playerStates, geometry) {
   }
 
   // Compute and smooth overtake offsets
-  const targets = computeOvertakeOffsets(basePositions);
+  const targets = computeOvertakeOffsets(basePositions, currentTrackLength);
   const smoothed = smoothVisualOffsets(targets);
 
   // Render all cars
   for (const [peerId, ps] of playerStates) {
     let car = cars.get(peerId);
     if (!car) {
-      car = new PIXI.Graphics();
-      car.circle(0, 0, CAR_RADIUS);
-      car.fill({ color: cssColorToHex(ps.color) });
-      car.stroke({ color: 0xffffff, width: 2 });
+      car = createCarGraphic(ps.color);
       carContainer.addChild(car);
       cars.set(peerId, car);
     }
@@ -206,6 +252,8 @@ export function updateCars(playerStates, geometry) {
 
         car.x = ps.offTrackX + Math.cos(fwdAngle) * forwardDist + Math.cos(latAngle) * lateralDist;
         car.y = ps.offTrackY + Math.sin(fwdAngle) * forwardDist + Math.sin(latAngle) * lateralDist;
+        // Spin during drift
+        car.rotation = ps.offTrackAngle + (t * Math.PI * 2 * ps.offTrackDirection);
         car.alpha = 1.0;
       } else {
         const blinkElapsed = elapsed - DRIFT_PHASE_MS;
@@ -214,12 +262,14 @@ export function updateCars(playerStates, geometry) {
         const pos = getPositionOnTrack(geometry, ps.offTrackSegIndex, ps.offTrackProgress, 0);
         car.x = pos.x;
         car.y = pos.y;
+        car.rotation = pos.angle;
       }
     } else {
       const offset = (ps.laneOffset || 0) + (smoothed.get(peerId) || 0);
       const pos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, offset);
       car.x = pos.x;
       car.y = pos.y;
+      car.rotation = pos.angle;
       car.alpha = 1.0;
     }
   }
@@ -246,19 +296,62 @@ function easeOutQuad(t) {
 
 function getTrackBounds(geometry) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+  function expand(x, y) {
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+
   for (const seg of geometry) {
-    for (const [x, y] of [[seg.startX, seg.startY], [seg.endX, seg.endY]]) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
-    }
-    if (seg.cx !== undefined) {
-      const r = seg.radius + TRACK_WIDTH;
-      minX = Math.min(minX, seg.cx - r);
-      maxX = Math.max(maxX, seg.cx + r);
-      minY = Math.min(minY, seg.cy - r);
-      maxY = Math.max(maxY, seg.cy + r);
+    const hw = TRACK_WIDTH / 2;
+
+    if (seg.type === 'straight') {
+      const nx = -Math.sin(seg.startAngle) * hw;
+      const ny = Math.cos(seg.startAngle) * hw;
+      expand(seg.startX + nx, seg.startY + ny);
+      expand(seg.startX - nx, seg.startY - ny);
+      expand(seg.endX + nx, seg.endY + ny);
+      expand(seg.endX - nx, seg.endY - ny);
+    } else if (seg.cx !== undefined) {
+      // Tight curve bounds: check endpoints and axis crossings within the arc
+      const sign = Math.sign(seg.angle);
+      const angleRad = (seg.angle * Math.PI) / 180;
+      const outerR = seg.radius + hw;
+      const innerR = seg.radius - hw;
+
+      // Start and end perpendicular angles
+      const pStart = seg.startAngle + (sign * Math.PI) / 2;
+      const pEnd = seg.endAngle + (sign * Math.PI) / 2;
+
+      // Expand by start/end points at both inner and outer radii
+      for (const r of [innerR, outerR]) {
+        expand(seg.cx - Math.cos(pStart) * r, seg.cy - Math.sin(pStart) * r);
+        expand(seg.cx - Math.cos(pEnd) * r, seg.cy - Math.sin(pEnd) * r);
+      }
+
+      // Check axis-aligned extremes (0, π/2, π, 3π/2) that fall within the arc
+      // The perpendicular angle sweeps from pStart to pStart + angleRad
+      for (let axis = 0; axis < 4; axis++) {
+        const axisAngle = (axis * Math.PI) / 2;
+        // Normalize the sweep check
+        let delta = axisAngle - pStart;
+        // Normalize delta into the sweep direction
+        if (sign > 0) {
+          delta = ((delta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          if (delta <= Math.abs(angleRad)) {
+            expand(seg.cx - Math.cos(axisAngle) * outerR, seg.cy - Math.sin(axisAngle) * outerR);
+            expand(seg.cx - Math.cos(axisAngle) * innerR, seg.cy - Math.sin(axisAngle) * innerR);
+          }
+        } else {
+          delta = ((-delta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          if (delta <= Math.abs(angleRad)) {
+            expand(seg.cx - Math.cos(axisAngle) * outerR, seg.cy - Math.sin(axisAngle) * outerR);
+            expand(seg.cx - Math.cos(axisAngle) * innerR, seg.cy - Math.sin(axisAngle) * innerR);
+          }
+        }
+      }
     }
   }
   return {
@@ -279,6 +372,20 @@ function hslToHex(h, s, l) {
     return Math.round(255 * color);
   };
   return (f(0) << 16) | (f(8) << 8) | f(4);
+}
+
+function darkenColor(hex, amount) {
+  const r = Math.round(((hex >> 16) & 0xff) * (1 - amount));
+  const g = Math.round(((hex >> 8) & 0xff) * (1 - amount));
+  const b = Math.round((hex & 0xff) * (1 - amount));
+  return (r << 16) | (g << 8) | b;
+}
+
+function lightenColor(hex, amount) {
+  const r = Math.min(255, Math.round(((hex >> 16) & 0xff) + (255 - ((hex >> 16) & 0xff)) * amount));
+  const g = Math.min(255, Math.round(((hex >> 8) & 0xff) + (255 - ((hex >> 8) & 0xff)) * amount));
+  const b = Math.min(255, Math.round((hex & 0xff) + (255 - (hex & 0xff)) * amount));
+  return (r << 16) | (g << 8) | b;
 }
 
 function cssColorToHex(cssColor) {

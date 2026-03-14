@@ -1,6 +1,6 @@
 import { MSG, ROOM_STATE } from '../shared/protocol.js';
 import { PLAYER_COLORS, MAX_SPEED } from '../shared/constants.js';
-import { getEffectiveMaxSpeed } from '../shared/track.js';
+import { TRACKS, getEffectiveMaxSpeed, getPositionOnTrack, getTrackLength } from '../shared/track.js';
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
@@ -22,6 +22,7 @@ let roomState = ROOM_STATE.LOBBY;
 let localPlayerId = null;
 let currentLocalThrottle = 0;
 let sliderActive = false;
+const autostartMode = new URLSearchParams(window.location.search).get('autostart');
 
 function showScreen(name) {
   currentScreen = name;
@@ -66,7 +67,9 @@ async function init() {
   showScreen(SCREEN.WELCOME);
 
   // Pre-create room on welcome screen
-  connectInBackground();
+  if (autostartMode !== 'solo') {
+    connectInBackground();
+  }
 
   // Welcome → Lobby (enter fullscreen)
   document.getElementById('new-game-btn').addEventListener('click', () => {
@@ -95,6 +98,12 @@ async function init() {
   // Results buttons
   document.getElementById('race-again-btn').addEventListener('click', () => playAgain());
   document.getElementById('new-game-results-btn').addEventListener('click', () => returnToLobby());
+
+  window.render_game_to_text = renderGameToText;
+
+  if (autostartMode === 'solo') {
+    await startSoloRace();
+  }
 }
 
 function resetToWelcome() {
@@ -378,6 +387,43 @@ function toggleFullscreen() {
 
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
+}
+
+function renderGameToText() {
+  const geometry = getGeometry();
+  const trackLength = geometry ? Math.round(getTrackLength(geometry)) : null;
+  const players = [...getPlayerStates().values()].map((ps) => {
+    const pos = geometry
+      ? getPositionOnTrack(geometry, ps.segIndex, ps.progress, ps.laneOffset || 0)
+      : null;
+
+    return {
+      id: ps.peerId,
+      name: ps.name,
+      lap: ps.lap,
+      speed: Math.round(ps.speed),
+      distance: Math.round(ps.distance),
+      segment: ps.segIndex,
+      progress: Number(ps.progress.toFixed(3)),
+      offTrack: ps.offTrack,
+      finished: ps.finished,
+      x: pos ? Math.round(pos.x) : null,
+      y: pos ? Math.round(pos.y) : null,
+      headingDeg: pos ? Math.round((pos.angle * 180) / Math.PI) : null,
+    };
+  });
+
+  return JSON.stringify({
+    screen: currentScreen,
+    roomState,
+    track: geometry ? {
+      name: TRACKS.starter.name,
+      coordinateSystem: 'origin at the start/finish line center, +x right, +y down',
+      length: trackLength,
+      segments: geometry.length,
+    } : null,
+    players,
+  });
 }
 
 init();

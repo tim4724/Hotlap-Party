@@ -17,59 +17,47 @@ export const SEGMENT_TYPES = {
   WIDE_HAIRPIN_LEFT: { type: 'curve', angle: -180, radius: 100, maxSpeed: 30 },
 };
 
+function straight(length, extra = {}) {
+  return { type: 'straight', length, ...extra };
+}
+
+function curve(angle, radius, maxSpeed, extra = {}) {
+  return { type: 'curve', angle, radius, maxSpeed, ...extra };
+}
+
 // Track definitions
 // Closure verified with scripts/check-track.js
 export const TRACKS = {
   starter: {
-    name: 'Grand Circuit',
+    name: 'Starter Circuit',
     laps: 2,
     segments: [
-      // ── Start/finish straight (heading right) ── 400 — top speed zone
-      SEGMENT_TYPES.LONG_STRAIGHT,
-
-      // ── Turn 1: Medium sweeper (maxSpeed 60) ──
-      SEGMENT_TYPES.MEDIUM_RIGHT,         // +90° r=150 → heading down
-
-      // ── Short straight before chicane ── 200
-      SEGMENT_TYPES.SHORT_STRAIGHT,
-
-      // ── Turn 2: Chicane entry (maxSpeed 40) — hard braking! ──
-      SEGMENT_TYPES.SHARP_LEFT,           // -90° r=100 → heading right
-
-      // ── Chicane connector ── 200
-      SEGMENT_TYPES.SHORT_STRAIGHT,
-
-      // ── Turn 3: Chicane exit (maxSpeed 40) ──
-      SEGMENT_TYPES.SHARP_RIGHT,          // +90° r=100 → heading down
-
-      // ── Recovery straight ── 400
-      SEGMENT_TYPES.LONG_STRAIGHT,
-
-      // ── Turn 4: Sharp left (maxSpeed 40) — direction change! ──
-      SEGMENT_TYPES.SHARP_LEFT,           // -90° r=100 → heading right
-
-      // ── Connector to hairpin ── 300
-      SEGMENT_TYPES.MEDIUM_STRAIGHT,
-
-      // ── Turn 5: HAIRPIN (maxSpeed 30) — major braking zone! ──
-      SEGMENT_TYPES.WIDE_HAIRPIN_RIGHT,   // +180° r=100 → heading left
-
-      // ── Back straight (heading left) ── 1400 — top speed zone
-      SEGMENT_TYPES.LONG_STRAIGHT,
-      SEGMENT_TYPES.LONG_STRAIGHT,
-      SEGMENT_TYPES.LONG_STRAIGHT,
-      SEGMENT_TYPES.SHORT_STRAIGHT,
-
-      // ── Turn 6: Sharp corner (maxSpeed 40) ──
-      SEGMENT_TYPES.SHARP_RIGHT,          // +90° r=100 → heading up
-
-      // ── Left side (heading up) ── 1000
-      SEGMENT_TYPES.LONG_STRAIGHT,
-      SEGMENT_TYPES.LONG_STRAIGHT,
-      SEGMENT_TYPES.SHORT_STRAIGHT,
-
-      // ── Turn 7: Medium sweeper back to start (maxSpeed 60) ──
-      SEGMENT_TYPES.MEDIUM_RIGHT,         // +90° r=150 → heading right
+      // 1: Start/finish straight (heading right)
+      straight(1917),
+      // 2: Turn 1a — gentle entry
+      curve(45, 400, 60),
+      // 3: Turn 1 link
+      straight(100),
+      // 4: Turn 1b — tighten exit
+      curve(45, 350, 55),
+      // 5: Right side (heading down)
+      straight(700),
+      // 6: Turn 2 — wide
+      curve(90, 350, 50),
+      // 7-11: Bottom straight (heading left)
+      straight(400),
+      straight(400),
+      straight(400),
+      straight(400),
+      straight(400),
+      // 10: Turn 3a — asymmetric sweep entry
+      curve(60, 350, 55),
+      // 11: Turn 3b — asymmetric sweep exit
+      curve(30, 300, 60),
+      // 14: Left side (heading up)
+      straight(840),
+      // 13: Turn 4 — wide sweep back to start
+      curve(90, 320, 50),
     ],
   },
 };
