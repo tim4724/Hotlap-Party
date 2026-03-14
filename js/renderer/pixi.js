@@ -172,45 +172,194 @@ function drawCurve(seg) {
 
 // Car dimensions (centered at 0,0, pointing right)
 const CAR_LENGTH = 112;
-const CAR_WIDTH = 56;
+const CAR_WIDTH = 48;
 
 function createCarGraphic(color) {
   const container = new PIXI.Container();
   const hexColor = cssColorToHex(color);
-  const hl = CAR_LENGTH / 2;
-  const hw = CAR_WIDTH / 2;
+  const dark = darkenColor(hexColor, 0.3);
+  const darker = darkenColor(hexColor, 0.5);
+  const light = lightenColor(hexColor, 0.3);
 
-  // Shadow (subtle, offset slightly)
-  const shadow = new PIXI.Graphics();
-  shadow.roundRect(-hl + 1, -hw + 1, CAR_LENGTH, CAR_WIDTH, 4);
-  shadow.fill({ color: 0x000000 });
-  shadow.alpha = 0.3;
-  container.addChild(shadow);
+  // Rear wheels (wide slicks, behind body)
+  for (const side of [-1, 1]) {
+    const wheel = new PIXI.Graphics();
+    wheel.roundRect(-40, side * 22 - 6, 22, 12, 2);
+    wheel.fill({ color: 0x111111 });
+    wheel.stroke({ color: 0x333333, width: 0.5 });
+    container.addChild(wheel);
+  }
 
-  // Body
+  // Front wheels (narrower)
+  for (const side of [-1, 1]) {
+    const wheel = new PIXI.Graphics();
+    wheel.roundRect(30, side * 18 - 4, 16, 8, 2);
+    wheel.fill({ color: 0x111111 });
+    wheel.stroke({ color: 0x333333, width: 0.5 });
+    container.addChild(wheel);
+  }
+
+  // Front wing
+  const fwing = new PIXI.Graphics();
+  fwing.roundRect(42, -22, 6, 44, 1);
+  fwing.fill({ color: dark });
+  container.addChild(fwing);
+
+  // Front wing endplates
+  for (const side of [-1, 1]) {
+    const fp = new PIXI.Graphics();
+    fp.rect(40, side * 20 - 2, 10, 4);
+    fp.fill({ color: darker });
+    container.addChild(fp);
+  }
+
+  // Suspension arms (front)
+  for (const side of [-1, 1]) {
+    const arm = new PIXI.Graphics();
+    arm.moveTo(28, side * 12);
+    arm.lineTo(38, side * 18);
+    arm.stroke({ color: 0x555555, width: 1.5 });
+    container.addChild(arm);
+  }
+
+  // Suspension arms (rear)
+  for (const side of [-1, 1]) {
+    const arm = new PIXI.Graphics();
+    arm.moveTo(-22, side * 14);
+    arm.lineTo(-34, side * 22);
+    arm.stroke({ color: 0x555555, width: 1.5 });
+    container.addChild(arm);
+  }
+
+  // Main body — narrow F1-style monocoque
   const body = new PIXI.Graphics();
-  body.roundRect(-hl, -hw, CAR_LENGTH, CAR_WIDTH, 4);
+  body.poly([
+    50, -6,     // nose tip
+    52,  0,     // nose point
+    50,  6,
+    34,  14,    // front of sidepods
+    -18, 16,    // widest point
+    -44, 12,    // rear taper
+    -48,  6,    // rear end
+    -48, -6,
+    -44, -12,
+    -18, -16,
+    34, -14,
+  ]);
   body.fill({ color: hexColor });
-  body.stroke({ color: 0xffffff, width: 1.5 });
+  body.stroke({ color: dark, width: 1 });
   container.addChild(body);
 
-  // Windshield (dark area near front)
-  const windshield = new PIXI.Graphics();
-  windshield.roundRect(2, -hw + 3, 7, CAR_WIDTH - 6, 2);
-  windshield.fill({ color: darkenColor(hexColor, 0.4) });
-  container.addChild(windshield);
+  // Engine cover spine (center line detail)
+  const spine = new PIXI.Graphics();
+  spine.poly([
+    -14, -3,
+    -42, -2,
+    -42,  2,
+    -14,  3,
+  ]);
+  spine.fill({ color: dark });
+  container.addChild(spine);
 
-  // Rear spoiler accent
-  const spoiler = new PIXI.Graphics();
-  spoiler.rect(-hl + 1, -hw + 1, 3, CAR_WIDTH - 2);
-  spoiler.fill({ color: darkenColor(hexColor, 0.25) });
-  container.addChild(spoiler);
+  // Side pods with air intake shape
+  for (const side of [-1, 1]) {
+    const pod = new PIXI.Graphics();
+    pod.poly([
+      10, side * 14,
+      20, side * 12,
+      22, side * 8,
+      -14, side * 10,
+      -18, side * 14,
+    ]);
+    pod.fill({ color: dark });
+    container.addChild(pod);
 
-  // Front highlight
-  const front = new PIXI.Graphics();
-  front.rect(hl - 4, -hw + 2, 2, CAR_WIDTH - 4);
-  front.fill({ color: lightenColor(hexColor, 0.3) });
-  container.addChild(front);
+    // Air intake opening
+    const intake = new PIXI.Graphics();
+    intake.poly([
+      12, side * 13,
+      18, side * 11,
+      16, side * 9,
+      10, side * 11,
+    ]);
+    intake.fill({ color: darker });
+    container.addChild(intake);
+  }
+
+  // Cockpit opening
+  const cockpit = new PIXI.Graphics();
+  cockpit.poly([
+    20, -8,
+    26, -4,
+    26,  4,
+    20,  8,
+    0,   9,
+    -6,  6,
+    -6, -6,
+    0,  -9,
+  ]);
+  cockpit.fill({ color: 0x1a1a1a });
+  container.addChild(cockpit);
+
+  // Halo device
+  const halo = new PIXI.Graphics();
+  halo.poly([
+    22, -5,
+    24, -3,
+    24,  3,
+    22,  5,
+    8,   6,
+    6,   5,
+    6,  -5,
+    8,  -6,
+  ]);
+  halo.stroke({ color: 0x888888, width: 1.5 });
+  container.addChild(halo);
+
+  // Driver helmet
+  const helmet = new PIXI.Graphics();
+  helmet.circle(8, 0, 4.5);
+  helmet.fill({ color: light });
+  helmet.stroke({ color: 0xaaaaaa, width: 1 });
+  container.addChild(helmet);
+
+  // Nose stripe
+  const stripe = new PIXI.Graphics();
+  stripe.poly([
+    48, -2,
+    50,  0,
+    48,  2,
+    34,  2,
+    34, -2,
+  ]);
+  stripe.fill({ color: light });
+  container.addChild(stripe);
+
+  // Rear wing (tall, wide)
+  const wing = new PIXI.Graphics();
+  wing.roundRect(-52, -28, 6, 56, 1);
+  wing.fill({ color: hexColor });
+  wing.stroke({ color: dark, width: 1 });
+  container.addChild(wing);
+
+  // Wing endplates
+  for (const side of [-1, 1]) {
+    const plate = new PIXI.Graphics();
+    plate.poly([
+      -54, side * 26,
+      -44, side * 26,
+      -44, side * 22,
+      -54, side * 24,
+    ]);
+    plate.fill({ color: darker });
+    container.addChild(plate);
+  }
+
+  // DRS flap detail on rear wing
+  const drs = new PIXI.Graphics();
+  drs.roundRect(-56, -24, 3, 48, 0.5);
+  drs.fill({ color: darker });
+  container.addChild(drs);
 
   return container;
 }
