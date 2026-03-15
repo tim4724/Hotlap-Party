@@ -27,9 +27,8 @@ export const ACCEL_RATE = 0.85;   // speed increase per tick when button held (~
 export const DECEL_RATE = 1.2;    // speed decrease per tick when button released (~1.4s to zero)
 
 // Lateral drift physics
-export const DRIFT_RATE = 0.06;      // lateral drift per excess speed per tick
-export const DRIFT_RECOVERY = 0.8;   // lateral recovery per tick when under limit
-export const DRIFT_CRASH_MARGIN = 5; // pixels inside track edge before crash
+export const DRIFT_RATE = 0.06;      // lateral movement per speed-diff per tick
+export const DRIFT_RECOVERY = 0.8;   // lateral recovery per tick on straights
 
 // Speed-to-hue: 0 → green (120), MAX_SPEED → red (0)
 // Maps speed value to HSL hue on the green-to-red gradient

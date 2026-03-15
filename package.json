@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Couch party racing game — phones as controllers via WebSocket",
   "scripts": {
-    "start": "node server.js"
+    "start": "node --watch server.js"
   }
 }

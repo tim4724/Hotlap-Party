@@ -1,4 +1,4 @@
-import { MAX_SPEED, SPEED_TO_DISTANCE, TRACK_WIDTH, OFF_TRACK_DURATION_MS, GRACE_PERIOD_MS, INPUT_TIMEOUT_MS, STATE_BROADCAST_INTERVAL, DRIFT_RATE, DRIFT_RECOVERY, DRIFT_CRASH_MARGIN, CAR_RADIUS, ACCEL_RATE, DECEL_RATE } from '../shared/constants.js';
+import { MAX_SPEED, SPEED_TO_DISTANCE, TRACK_WIDTH, OFF_TRACK_DURATION_MS, GRACE_PERIOD_MS, INPUT_TIMEOUT_MS, STATE_BROADCAST_INTERVAL, DRIFT_RATE, DRIFT_RECOVERY, CAR_RADIUS, ACCEL_RATE, DECEL_RATE } from '../shared/constants.js';
 import { TRACKS, buildTrackGeometry, getTrackLength, distanceToSegment, getPositionOnTrack, getEffectiveMaxSpeed } from '../shared/track.js';
 import { playerState as stateMsg, gameOver } from '../shared/protocol.js';
 import { sendTo, broadcast } from './connection.js';
@@ -197,22 +197,22 @@ function loop(timestamp) {
     // Lateral drift physics
     const seg = geometry[ps.segIndex];
     const effectiveMax = getEffectiveMaxSpeed(seg, ps.progress, MAX_SPEED);
+    const crashEdge = TRACK_WIDTH / 2 - CAR_RADIUS;
 
-    if (seg.type === 'curve' && seg.maxSpeed && ps.speed > effectiveMax && now > ps.graceUntil) {
-      // Drifting outward — excess speed pushes car toward edge
-      const excess = ps.speed - effectiveMax;
-      const driftDir = -Math.sign(seg.angle); // outward from curve
-      ps.laneOffset += driftDir * excess * DRIFT_RATE;
+    // Speed diff drives everything: positive = over limit (drift out), negative = under (recover)
+    if (seg.type === 'curve' && seg.maxSpeed && now > ps.graceUntil) {
+      const diff = ps.speed - effectiveMax;
+      const driftDir = -Math.sign(seg.angle);
+      ps.laneOffset += driftDir * diff * DRIFT_RATE;
+      if (Math.abs(ps.laneOffset) < 0.1) ps.laneOffset = 0;
     } else if (ps.laneOffset !== 0) {
-      // Recovering toward center
+      // On straights: recover toward center
       const sign = Math.sign(ps.laneOffset);
-      const recovery = Math.min(Math.abs(ps.laneOffset), DRIFT_RECOVERY);
-      ps.laneOffset -= sign * recovery;
+      ps.laneOffset -= sign * Math.min(Math.abs(ps.laneOffset), DRIFT_RECOVERY);
       if (Math.abs(ps.laneOffset) < 0.1) ps.laneOffset = 0;
     }
 
-    // Crash check — drifted to track edge
-    const crashEdge = TRACK_WIDTH / 2 - CAR_RADIUS - DRIFT_CRASH_MARGIN;
+    // CRASH — at true track edge
     if (Math.abs(ps.laneOffset) >= crashEdge) {
       const crashPos = getPositionOnTrack(geometry, ps.segIndex, ps.progress, ps.laneOffset);
       ps.offTrack = true;
