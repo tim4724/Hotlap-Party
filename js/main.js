@@ -249,6 +249,7 @@ function returnToLobby() {
 async function startRaceWithPlayers(players, skipCountdown = false, devMode = false) {
   const canvas = document.getElementById('race-canvas');
   await initRenderer(canvas);
+  resumeAudio();
 
   const seed = Math.floor(Math.random() * 1000000);
   currentTrack = generateRandomTrack(seed) || TRACKS.starter;
