@@ -18,7 +18,7 @@ export function initAudio() {
   if (ctx) return;
   ctx = new AudioContext();
   masterGain = ctx.createGain();
-  masterGain.gain.value = 1.0;
+  masterGain.gain.value = muted ? 0 : 1.0;
   masterGain.connect(ctx.destination);
 
   const resume = () => {
@@ -32,7 +32,7 @@ export function initAudio() {
   window.addEventListener('keydown', resume, { once: true });
 }
 
-let muted = false;
+let muted = localStorage.getItem('muted') === 'true';
 
 export function suspendAudio() {
   if (ctx && ctx.state === 'running') ctx.suspend();
@@ -47,6 +47,7 @@ export function resumeAudio() {
 
 export function toggleMute() {
   muted = !muted;
+  localStorage.setItem('muted', muted);
   if (masterGain) {
     masterGain.gain.setValueAtTime(muted ? 0 : 1.0, ctx.currentTime);
   }

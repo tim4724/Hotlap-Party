@@ -5,7 +5,7 @@ import { generateRandomTrack } from '../shared/generate-track.js';
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
-import { initRenderer, drawTrack, updateCars, updateHUD, resize, suspendAudio, resumeAudio, toggleMute as audioToggleMute } from './renderer/index.js';
+import { initRenderer, drawTrack, updateCars, updateHUD, resize, suspendAudio, resumeAudio, toggleMute as audioToggleMute, isMuted } from './renderer/index.js';
 import { showResults } from './results.js';
 
 // --- Screens ---
@@ -89,6 +89,11 @@ async function init() {
   // Mute toggle
   const muteBtn = document.getElementById('mute-btn');
   muteBtn.addEventListener('click', toggleMute);
+  // Restore mute UI from saved preference
+  if (isMuted()) {
+    const waves = muteBtn.querySelector('.sound-waves');
+    if (waves) waves.style.display = 'none';
+  }
 
   // Pause buttons (display-side)
   document.getElementById('pause-btn').addEventListener('click', () => pauseGame());
