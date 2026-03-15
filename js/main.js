@@ -165,18 +165,22 @@ function handleMessage(fromPeerId, data) {
 // --- Solo Mode ---
 
 async function startSoloRace() {
+  const numPlayers = window.__testPlayerCount || 2;
   localPlayerId = 'local';
+  const names = ['Player 1', 'Bot', 'Ghost', 'Rival'];
   const localPlayers = new Map();
   localPlayers.set(localPlayerId, {
-    name: 'Player 1',
+    name: names[0],
     color: PLAYER_COLORS[0],
     index: 0,
   });
-  localPlayers.set('bot', {
-    name: 'Bot',
-    color: PLAYER_COLORS[1],
-    index: 1,
-  });
+  for (let i = 1; i < numPlayers; i++) {
+    localPlayers.set(`bot${i}`, {
+      name: names[i] || `Bot ${i}`,
+      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+      index: i,
+    });
+  }
 
   await startRaceWithPlayers(localPlayers, true, true);
   initDevSlider();
