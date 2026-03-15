@@ -1,5 +1,6 @@
 // Visual overtake spreading — renderer-agnostic logic
 // When cars are near each other, the one ahead shifts left, the one behind shifts right.
+// Sides are locked while either car is still offset, so cars never cross mid-encounter.
 
 const OVERTAKE_PROXIMITY = 160; // pixel distance to trigger spread
 const OVERTAKE_OFFSET = 50;     // max lateral offset in pixels
@@ -10,8 +11,6 @@ const visualOffsets = new Map(); // peerId → current smoothed offset
 
 /**
  * Compute target lateral offsets from a map of base positions.
- * Offset is weighted by speed — a faster car moves left more,
- * a slower/stationary car barely moves.
  * @param {Map<string, {x, y, distance, speed}>} basePositions
  * @param {number} trackLength
  * @returns {Map<string, number>} target offsets per peerId
@@ -36,19 +35,34 @@ export function computeOvertakeOffsets(basePositions, trackLength) {
       const proximity = 1 - dist / OVERTAKE_PROXIMITY;
       const totalSpread = OVERTAKE_OFFSET * 2 * proximity;
 
-      // Determine ahead/behind
-      const [aheadId, behindId, aheadSpeed, behindSpeed] =
-        posA.distance > posB.distance
-          ? [idA, idB, posA.speed, posB.speed]
-          : [idB, idA, posB.speed, posA.speed];
+      // Determine ahead/behind by track distance
+      const aIsAhead = posA.distance > posB.distance;
+      const aheadSpeed = aIsAhead ? posA.speed : posB.speed;
+      const behindSpeed = aIsAhead ? posB.speed : posA.speed;
+
+      // Determine sides: use existing visual offsets if either car is still
+      // offset (locks sides for the encounter), otherwise ahead goes left.
+      const offA = visualOffsets.get(idA) || 0;
+      const offB = visualOffsets.get(idB) || 0;
+      let leftId, rightId;
+      if (Math.abs(offA) > 0.5 || Math.abs(offB) > 0.5) {
+        // Already mid-encounter — keep whichever car is more left
+        leftId = offA <= offB ? idA : idB;
+        rightId = offA <= offB ? idB : idA;
+      } else {
+        // Fresh encounter — ahead car goes left
+        leftId = aIsAhead ? idA : idB;
+        rightId = aIsAhead ? idB : idA;
+      }
 
       // Weight by speed — faster car takes more of the offset
-      const speedSum = aheadSpeed + behindSpeed;
-      const aheadFraction = speedSum > 0 ? aheadSpeed / speedSum : 0.5;
-      const behindFraction = 1 - aheadFraction;
+      const leftSpeed = leftId === (aIsAhead ? idA : idB) ? aheadSpeed : behindSpeed;
+      const rightSpeed = leftId === (aIsAhead ? idA : idB) ? behindSpeed : aheadSpeed;
+      const speedSum = leftSpeed + rightSpeed;
+      const leftFraction = speedSum > 0 ? leftSpeed / speedSum : 0.5;
 
-      targets.set(aheadId, targets.get(aheadId) - totalSpread * aheadFraction);
-      targets.set(behindId, targets.get(behindId) + totalSpread * behindFraction);
+      targets.set(leftId, targets.get(leftId) - totalSpread * leftFraction);
+      targets.set(rightId, targets.get(rightId) + totalSpread * (1 - leftFraction));
     }
   }
 
@@ -66,7 +80,7 @@ export function smoothVisualOffsets(targets) {
     visualOffsets.set(id, current + (target - current) * OFFSET_LERP);
   }
 
-  // Clean up offsets for cars no longer in targets
+  // Decay offsets for cars no longer in targets
   for (const id of visualOffsets.keys()) {
     if (!targets.has(id)) {
       const current = visualOffsets.get(id);

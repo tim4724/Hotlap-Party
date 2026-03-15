@@ -9,7 +9,7 @@ export const PLAYER_COLORS = [
 // Physics
 export const MAX_SPEED = 100;
 export const SPEED_TO_DISTANCE = 0.125; // distance units per speed unit per tick (0.5x speed)
-export const OFF_TRACK_DURATION_MS = 2000;
+export const OFF_TRACK_DURATION_MS = 1000;
 export const DRIFT_PHASE_MS = 600; // how long the drift-outward animation lasts
 export const GRACE_PERIOD_MS = 300; // brief immunity after recovery
 

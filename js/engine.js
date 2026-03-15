@@ -138,7 +138,7 @@ function loop(timestamp) {
       }
     }
 
-    if (peerId === 'bot') {
+    if (peerId.startsWith('bot')) {
       // Bot: drive at just under the effective max speed for current position
       const seg = geometry[ps.segIndex];
       const effMax = getEffectiveMaxSpeed(seg, ps.progress, MAX_SPEED);
@@ -232,7 +232,7 @@ function loop(timestamp) {
   // Broadcast state to controllers at reduced rate (skip local players)
   if (tick % STATE_BROADCAST_INTERVAL === 0) {
     for (const [peerId, ps] of playerStates) {
-      if (peerId === 'local' || peerId === 'bot') continue;
+      if (peerId === 'local' || peerId.startsWith('bot')) continue;
       const currentSeg = geometry[ps.segIndex];
       const nextSeg = geometry[(ps.segIndex + 1) % geometry.length];
       let effectiveMaxSpeed = getEffectiveMaxSpeed(currentSeg, ps.progress, MAX_SPEED);

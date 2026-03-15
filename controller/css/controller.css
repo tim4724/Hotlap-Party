@@ -169,13 +169,36 @@ body {
   right: 16px;
   width: 44px;
   height: 44px;
-  border: none;
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 8px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.5);
-  font-size: 1.2rem;
   cursor: pointer;
   z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+#pause-btn:hover {
+  border-color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.12);
+}
+
+.pause-icon {
+  display: flex;
+  gap: 3px;
+}
+
+.pause-icon::before,
+.pause-icon::after {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: currentColor;
+  border-radius: 1px;
 }
 
 #pause-overlay {
