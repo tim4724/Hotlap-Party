@@ -19,8 +19,7 @@ let finishedCount = 0;
 let raceStartTime = 0;
 let devMode = false;
 
-export function initEngine(players, trackId, callbacks) {
-  const track = TRACKS[trackId || 'starter'];
+export function initEngine(players, track, callbacks) {
   geometry = buildTrackGeometry(track.segments);
   trackLength = getTrackLength(geometry);
   totalLaps = track.laps;

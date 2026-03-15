@@ -1,6 +1,7 @@
 import { MSG, ROOM_STATE } from '../shared/protocol.js';
 import { PLAYER_COLORS, MAX_SPEED } from '../shared/constants.js';
 import { TRACKS, getEffectiveMaxSpeed, getPositionOnTrack, getTrackLength } from '../shared/track.js';
+import { generateRandomTrack } from '../shared/generate-track.js';
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
@@ -18,6 +19,7 @@ const screenEls = {
 };
 
 let currentScreen = SCREEN.WELCOME;
+let currentTrack = null;
 let roomState = ROOM_STATE.LOBBY;
 let localPlayerId = null;
 let currentLocalThrottle = 0;
@@ -242,7 +244,9 @@ async function startRaceWithPlayers(players, skipCountdown = false, devMode = fa
   const canvas = document.getElementById('race-canvas');
   await initRenderer(canvas);
 
-  initEngine(players, 'starter', {
+  const seed = Math.floor(Math.random() * 1000000);
+  currentTrack = generateRandomTrack(seed) || TRACKS.starter;
+  initEngine(players, currentTrack, {
     devMode,
     onUpdate: (states, geo) => {
       if (localPlayerId) {
@@ -421,7 +425,7 @@ function renderGameToText() {
     screen: currentScreen,
     roomState,
     track: geometry ? {
-      name: TRACKS.starter.name,
+      name: currentTrack?.name ?? 'Unknown',
       coordinateSystem: 'origin at the start/finish line center, +x right, +y down',
       length: trackLength,
       segments: geometry.length,

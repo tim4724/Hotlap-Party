@@ -60,6 +60,74 @@ export const TRACKS = {
       curve(90, 320, 50),
     ],
   },
+
+  silverstone: {
+    name: 'Silverstone Sprint',
+    laps: 2,
+    seed: 3,
+    segments: [
+      straight(1178),
+      curve(-63.2, 336, 54),  // left sweeper into infield
+      straight(301),
+      curve(68.7, 280, 48),   // tight right back out
+      straight(549),
+      curve(30.1, 351, 55),
+      straight(703),
+      curve(118.1, 283, 48),  // big right hairpin
+      straight(740),
+      curve(11.9, 479, 65),
+      straight(324),
+      curve(-36.7, 352, 55),  // left kink
+      straight(644),
+      curve(61.9, 348, 55),
+      straight(730),
+      curve(53.7, 374, 57),
+      straight(946),
+      curve(115.5, 276, 48),  // tight final corner
+    ],
+  },
+
+  monza: {
+    name: 'Monza Classico',
+    laps: 2,
+    seed: 1001,
+    segments: [
+      straight(1126),
+      curve(35.7, 362, 56),
+      straight(1123),
+      curve(116.6, 286, 49),  // tight right
+      straight(1244),
+      curve(61.2, 287, 49),
+      straight(468),
+      curve(-23.8, 421, 62),  // left notch
+      straight(1314),
+      curve(133.8, 260, 46),  // hairpin
+      straight(1181),
+      curve(36.5, 313, 51),
+    ],
+  },
+
+  suzuka: {
+    name: 'Suzuka Sweep',
+    laps: 2,
+    seed: 200,
+    segments: [
+      straight(1429),
+      curve(18.5, 445, 65),   // gentle kink
+      straight(2199),
+      curve(41.2, 347, 55),
+      straight(907),
+      curve(104.1, 254, 45),  // tight right
+      straight(1047),
+      curve(17.6, 493, 65),
+      straight(2095),
+      curve(33.6, 442, 64),
+      straight(1296),
+      curve(68.9, 317, 52),
+      straight(918),
+      curve(76, 315, 51),
+    ],
+  },
 };
 
 /**

@@ -3,7 +3,12 @@
 
 import { TRACKS, buildTrackGeometry, getTrackLength } from '../shared/track.js';
 
-const track = TRACKS.starter;
+const trackName = process.argv[2] || 'starter';
+if (!TRACKS[trackName]) {
+  console.log(`Unknown track: ${trackName}. Available: ${Object.keys(TRACKS).join(', ')}`);
+  process.exit(1);
+}
+const track = TRACKS[trackName];
 const segments = track.segments;
 
 // Angle check
