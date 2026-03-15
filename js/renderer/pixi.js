@@ -1,9 +1,9 @@
 import { TRACK_WIDTH, CAR_RADIUS, MAX_SPEED, OFF_TRACK_DURATION_MS, DRIFT_PHASE_MS } from '../../shared/constants.js';
 import { getPositionOnTrack, getEffectiveMaxSpeed, getTrackLength } from '../../shared/track.js';
 import { computeOvertakeOffsets, smoothVisualOffsets } from './overtake.js';
-import { initAudio, updateAudio, playCrashSound, suspendAudio, resumeAudio } from './audio.js';
+import { initAudio, updateAudio, playCrashSound, suspendAudio, resumeAudio, toggleMute, isMuted } from './audio.js';
 
-export { suspendAudio, resumeAudio };
+export { suspendAudio, resumeAudio, toggleMute, isMuted };
 
 let app = null;
 let trackContainer = null;

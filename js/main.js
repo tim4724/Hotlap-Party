@@ -5,7 +5,7 @@ import { generateRandomTrack } from '../shared/generate-track.js';
 import { connect, broadcast, sendTo } from './connection.js';
 import { initLobby, addPeer, handleHello, removePeer, getPlayers, isHost, showConnectionInfo, preloadQR, resetForNewGame } from './lobby.js';
 import { initEngine, startEngine, stopEngine, pauseEngine, resumeEngine, isPaused, handleInput, getGeometry, getTotalLaps, getPlayerStates } from './engine.js';
-import { initRenderer, drawTrack, updateCars, updateHUD, resize, suspendAudio, resumeAudio } from './renderer/index.js';
+import { initRenderer, drawTrack, updateCars, updateHUD, resize, suspendAudio, resumeAudio, toggleMute as audioToggleMute } from './renderer/index.js';
 import { showResults } from './results.js';
 
 // --- Screens ---
@@ -31,8 +31,6 @@ function showScreen(name) {
   for (const [k, el] of Object.entries(screenEls)) {
     el.classList.toggle('hidden', k !== name);
   }
-  // Show fullscreen toggle on all screens except welcome
-  document.getElementById('fullscreen-btn').classList.toggle('hidden', name === SCREEN.WELCOME);
   // Reset overlays when leaving game
   if (name !== SCREEN.GAME) {
     document.getElementById('countdown-overlay').classList.add('hidden');
@@ -84,14 +82,13 @@ async function init() {
   // Refit track on resize / orientation change
   window.addEventListener('resize', () => resize());
 
-  // Fullscreen toggle
-  const fsBtn = document.getElementById('fullscreen-btn');
-  fsBtn.addEventListener('click', toggleFullscreen);
-  document.addEventListener('fullscreenchange', () => {
-    fsBtn.textContent = document.fullscreenElement ? '⛶' : '⛶';
-    fsBtn.classList.toggle('is-fullscreen', !!document.fullscreenElement);
-    setTimeout(() => resize(), 100);
-  });
+  // Toolbar buttons
+  document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => setTimeout(() => resize(), 100));
+
+  // Mute toggle
+  const muteBtn = document.getElementById('mute-btn');
+  muteBtn.addEventListener('click', toggleMute);
 
   // Pause buttons (display-side)
   document.getElementById('pause-btn').addEventListener('click', () => pauseGame());
@@ -391,6 +388,12 @@ function toggleFullscreen() {
   } else {
     document.documentElement.requestFullscreen().catch(() => {});
   }
+}
+
+function toggleMute() {
+  const muted = audioToggleMute();
+  const waves = document.querySelector('#mute-btn .sound-waves');
+  if (waves) waves.style.display = muted ? 'none' : '';
 }
 
 function sleep(ms) {

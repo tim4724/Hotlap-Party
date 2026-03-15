@@ -32,6 +32,8 @@ export function initAudio() {
   window.addEventListener('keydown', resume, { once: true });
 }
 
+let muted = false;
+
 export function suspendAudio() {
   if (ctx && ctx.state === 'running') ctx.suspend();
 }
@@ -41,6 +43,18 @@ export function resumeAudio() {
     ctx.resume();
     resumed = true;
   }
+}
+
+export function toggleMute() {
+  muted = !muted;
+  if (masterGain) {
+    masterGain.gain.setValueAtTime(muted ? 0 : 1.0, ctx.currentTime);
+  }
+  return muted;
+}
+
+export function isMuted() {
+  return muted;
 }
 
 export function updateAudio(playerStates) {
