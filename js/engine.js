@@ -203,7 +203,15 @@ function loop(timestamp) {
     if (seg.type === 'curve' && seg.maxSpeed && now > ps.graceUntil) {
       const diff = ps.speed - effectiveMax;
       const driftDir = -Math.sign(seg.angle);
-      ps.laneOffset += driftDir * diff * DRIFT_RATE;
+      if (diff > 0) {
+        // Over limit: drift outward
+        ps.laneOffset += driftDir * diff * DRIFT_RATE;
+      } else if (ps.laneOffset !== 0) {
+        // Under limit: recover toward center (not past it)
+        const sign = Math.sign(ps.laneOffset);
+        const recovery = Math.min(Math.abs(ps.laneOffset), Math.abs(diff) * DRIFT_RATE);
+        ps.laneOffset -= sign * recovery;
+      }
       if (Math.abs(ps.laneOffset) < 0.1) ps.laneOffset = 0;
     } else if (ps.laneOffset !== 0) {
       // On straights: recover toward center
